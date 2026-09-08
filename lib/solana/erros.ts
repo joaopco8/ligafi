@@ -15,6 +15,7 @@ export class ErroLigaFi extends Error {
       | "airdrop_limite"
       | "quorum_nao_atingido"
       | "governanca"
+      | "nao_encontrado"
       | "desconhecido",
     public readonly original?: unknown,
   ) {
@@ -30,6 +31,7 @@ const REGRAS: { re: RegExp; codigo: ErroLigaFi["codigo"]; msg: string }[] = [
   { re: /block ?height exceeded|blockhash not found|expired|TransactionExpired/i, codigo: "blockhash_expirado", msg: "A transação expirou antes de ser confirmada. Tente de novo." },
   { re: /airdrop.*(limit|rate)|429|Too Many Requests|faucet/i, codigo: "airdrop_limite", msg: "O faucet de devnet limitou o airdrop por agora. Espere uns minutos ou use https://faucet.solana.com." },
   { re: /failed to fetch|fetch failed|ECONNREFUSED|ENOTFOUND|network|timeout|503|502|504/i, codigo: "rpc_indisponivel", msg: "A rede devnet não respondeu. Verifique a conexão ou tente mais tarde." },
+  { re: /Unable to find account|Account does not exist|could not find account|AccountNotFound/i, codigo: "nao_encontrado", msg: "Multisig não encontrado na devnet. Confira o endereço ou crie o cofre em /setup." },
   { re: /NotAMember|Unauthorized|0x1770/i, codigo: "governanca", msg: "Esta carteira não é signatária deste cofre." },
   { re: /InvalidProposalStatus|AlreadyApproved|0x177b|0x177a/i, codigo: "quorum_nao_atingido", msg: "Esta proposta já foi assinada por você ou não está mais aberta." },
 ];
