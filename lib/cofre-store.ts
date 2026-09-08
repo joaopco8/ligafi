@@ -15,6 +15,26 @@ export interface SignatarioLocal {
   cargo: string;
 }
 
+export interface GestaoLocal {
+  nome: string;
+  inicio: string;
+  fim?: string;
+  signatarios: string[];
+  /** Índice da ConfigTransaction que efetivou a troca (ausente na primeira). */
+  indiceTransicao?: string;
+}
+
+export interface TransicaoLocal {
+  indice: string;
+  nomeNovaGestao: string;
+  novos: SignatarioLocal[];
+  concluidaEm?: string;
+  snapshot?: {
+    antes: { endereco: string; saldoLamports: number; propostas: number; signatarios: string[] };
+    depois: { endereco: string; saldoLamports: number; propostas: number; signatarios: string[] };
+  };
+}
+
 export interface CofreLocal {
   multisigPda: string;
   vaultPda: string;
@@ -24,7 +44,11 @@ export interface CofreLocal {
   criadoEm: string;
   assinaturaCriacao?: string;
   /** Metadados off-chain de propostas: índice → descrição/categoria/destinatário. */
-  propostas: Record<string, { descricao: string; categoria: string; destinatarioNome?: string }>;
+  propostas: Record<string, { descricao: string; categoria: string; destinatarioNome?: string; execucaoSig?: string }>;
+  /** Gestões conhecidas neste navegador (nomes são off-chain; membros vêm da chain). */
+  gestoes?: GestaoLocal[];
+  transicao?: TransicaoLocal | null;
+  ultimaTransicao?: TransicaoLocal | null;
 }
 
 interface CofreState {
@@ -33,6 +57,7 @@ interface CofreState {
   definirCofre: (c: CofreLocal) => void;
   anotarProposta: (indice: bigint | number | string, meta: CofreLocal["propostas"][string]) => void;
   renomearSignatario: (endereco: string, nome: string, cargo: string) => void;
+  atualizarCofre: (patch: Partial<CofreLocal>) => void;
   limparCofre: () => void;
 }
 
@@ -55,6 +80,10 @@ export const useCofre = create<CofreState>()(
           ? c.signatarios.map((s) => (s.endereco === endereco ? { ...s, nome, cargo } : s))
           : [...c.signatarios, { endereco, nome, cargo }];
         set({ cofre: { ...c, signatarios } });
+      },
+      atualizarCofre: (patch) => {
+        const c = get().cofre;
+        if (c) set({ cofre: { ...c, ...patch } });
       },
       limparCofre: () => set({ cofre: null }),
     }),

@@ -36,6 +36,26 @@ export function RequerSignatario({ children, titulo = "Área da diretoria" }: { 
 
   const semCarteira = !id.conectada;
 
+  if (!DEMO_MODE && !id.temCofre) {
+    return (
+      <main className="flex flex-1 flex-col">
+        <header className="mb-4">
+          <Rotulo>{titulo}</Rotulo>
+          <h1 className="mt-1 font-display text-2xl font-semibold tracking-[-0.01em]">Nenhum cofre configurado</h1>
+          <p className="mt-1 text-sm text-white/60">
+            Este navegador ainda não conhece o multisig da entidade. Crie um novo ou informe o endereço de um existente.
+          </p>
+        </header>
+        <div className="mt-auto flex flex-col gap-2">
+          <BotaoLink href="/setup">Configurar o cofre</BotaoLink>
+          <BotaoLink href={`/extrato/${liga.id}`} variante="secondary">
+            Ver extrato público
+          </BotaoLink>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="flex flex-1 flex-col">
       <header className="mb-4">

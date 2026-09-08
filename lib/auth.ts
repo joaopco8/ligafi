@@ -16,15 +16,19 @@
 
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useEffect, useMemo, useState } from "react";
+import { useCofre } from "./cofre-store";
 import { membros as membrosMock } from "./mock-data";
 import { DEMO_MODE } from "./solana/config";
 import { useDiretoresAtuais, useLigaFi } from "./store";
+import { useChainStore } from "./tesouraria/chain-store";
 import type { Diretor, Membro } from "./types";
 
 export type PapelAcesso = "signatario" | "membro" | "visitante";
 
 export interface Identidade {
   papel: PapelAcesso;
+  /** Modo chain: há multisig configurado (env ou /setup)? */
+  temCofre: boolean;
   /** Endereço conectado (ou null). */
   endereco: string | null;
   conectada: boolean;
@@ -70,6 +74,12 @@ export function useIdentidade(): Identidade {
   const setDiretorAtual = useLigaFi((s) => s.setDiretorAtual);
   const diretoresAtuais = useDiretoresAtuais();
 
+  // Modo chain: signatário = membro do multisig lido da devnet.
+  const chainInfo = useChainStore((s) => s.info);
+  const chainCarregando = useChainStore((s) => s.carregando);
+  const cofre = useCofre((s) => s.cofre);
+  const cofreHidratado = useCofre((s) => s.hidratado);
+
   const [montadoHa, setMontadoHa] = useState(false);
   useEffect(() => {
     const t = setTimeout(() => setMontadoHa(true), JANELA_AUTOCONNECT_MS);
@@ -80,10 +90,14 @@ export function useIdentidade(): Identidade {
   const sessaoDemo = DEMO_MODE && carteira?.rede === "demo";
   const diretorAtual = diretoresAtuais.find((d) => d.id === diretorAtualId) ?? diretoresAtuais[0];
 
-  const resolvido = useMemo(
-    () => resolverPapel(endereco, { diretoresAtuais, membros: membrosMock, diretorAtual, demo: DEMO_MODE, sessaoDemo }),
-    [endereco, diretoresAtuais, diretorAtual, sessaoDemo],
-  );
+  const resolvido = useMemo<Pick<Identidade, "papel" | "diretor" | "membro">>(() => {
+    if (DEMO_MODE) {
+      return resolverPapel(endereco, { diretoresAtuais, membros: membrosMock, diretorAtual, demo: true, sessaoDemo });
+    }
+    const membrosChain = chainInfo?.membros.map((m) => m.key.toBase58()) ?? [];
+    if (endereco && membrosChain.includes(endereco)) return { papel: "signatario" };
+    return { papel: "visitante" };
+  }, [endereco, diretoresAtuais, diretorAtual, sessaoDemo, chainInfo]);
 
   // Carteira real que é diretora assina como ela mesma.
   useEffect(() => {
@@ -94,10 +108,14 @@ export function useIdentidade(): Identidade {
 
   // Carregando: store não hidratou, adapter conectando, ou há carteira
   // lembrada (autoConnect) que ainda não terminou na janela inicial.
-  const carregando = !hidratado || connecting || (!connected && !!wallet && !montadoHa);
+  const temCofre = DEMO_MODE || !!(process.env.NEXT_PUBLIC_MULTISIG_ADDRESS || cofre?.multisigPda);
+  const esperandoChain = !DEMO_MODE && connected && temCofre && !chainInfo && chainCarregando;
+  const carregando =
+    !hidratado || (!DEMO_MODE && !cofreHidratado) || connecting || (!connected && !!wallet && !montadoHa) || esperandoChain;
 
   return {
     ...resolvido,
+    temCofre,
     endereco,
     conectada: connected,
     carregando,
