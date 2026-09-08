@@ -185,7 +185,12 @@ export function derivarVault(multisigPda: PublicKey): PublicKey {
 export async function lerMultisig(connection: Connection, multisigPda: PublicKey): Promise<MultisigInfo> {
   let conta: multisig.generated.Multisig;
   try {
-    conta = await multisig.accounts.Multisig.fromAccountAddress(connection, multisigPda, "confirmed");
+    const raw = await connection.getAccountInfo(multisigPda, "confirmed");
+    if (!raw) throw new ErroLigaFi("Multisig não encontrado na devnet. Confira o endereço ou crie o cofre em /setup.", "nao_encontrado");
+    if (!raw.owner.equals(PROGRAM_ID)) {
+      throw new ErroLigaFi("Este endereço existe, mas não é um multisig do Squads v4.", "nao_encontrado");
+    }
+    [conta] = multisig.accounts.Multisig.fromAccountInfo(raw);
   } catch (e) {
     throw traduzirErro(e);
   }
