@@ -11,7 +11,9 @@
  * Referência: https://docs.solanapay.com/spec
  */
 
-import type { Address, Signature } from "./squads";
+// Tipos mínimos; a integração real entra na Fase 6.
+export type Address = string;
+export type Signature = string;
 
 export interface CobrancaParams {
   /** Endereço que recebe — no LigaFi é sempre o Vault PDA do multisig. */

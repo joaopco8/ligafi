@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "smoke:devnet": "npx -y tsx scripts/devnet-smoke.ts"
   },
   "dependencies": {
     "@solana/wallet-adapter-base": "0.9.27",
@@ -15,6 +16,7 @@
     "@solana/wallet-adapter-react-ui": "0.9.39",
     "@solana/wallet-adapter-solflare": "0.6.33",
     "@solana/web3.js": "1.98.4",
+    "@sqds/multisig": "2.1.4",
     "next": "14.2.15",
     "qrcode.react": "^3.1.0",
     "react": "^18.3.1",

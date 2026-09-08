@@ -38,6 +38,9 @@ function PainelConteudo() {
     <main className="flex flex-1 flex-col">
       <div className="mb-4 flex items-center justify-end">
         <nav className="flex items-center gap-3 text-xs font-medium text-white/60">
+          <Link href="/setup" className="underline-offset-4 hover:text-white hover:underline">
+            Cofre
+          </Link>
           <Link href="/anuidade" className="underline-offset-4 hover:text-white hover:underline">
             Anuidade
           </Link>
