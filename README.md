@@ -1,99 +1,129 @@
 # LigaFi
 
-Tesouraria transparente para entidades estudantis brasileiras (ligas acadêmicas, atléticas, DAs).
+Tesouraria multi-assinatura para entidades estudantis brasileiras (ligas acadêmicas, atléticas, DAs), em Solana **devnet**.
 
 > O caixa da entidade que a próxima gestão herda.
 
-- O caixa pertence à entidade, não ao CPF de um diretor.
-- Nenhum pagamento sai sem 3 assinaturas de 5 diretores.
-- O extrato é público: link aberto, ninguém precisa de senha.
+- O caixa pertence à entidade, não ao CPF de um diretor: o cofre é um multisig **Squads Protocol v4** sem `config_authority` (governança 100% on-chain).
+- Nenhum pagamento sai sem o quórum: **3 de 5 assinaturas**, garantido pelo threshold do multisig e verificado pela rede, não pelo app.
+- O extrato é público e sobrevive à troca de gestão: a troca de signatários é uma proposta on-chain aprovada pela gestão que sai. O endereço do cofre, o saldo e o histórico não mudam.
 
-## Rodar
+## Setup
 
 ```bash
 npm install
-npm run dev
+cp .env.example .env.local   # edite conforme abaixo
+npm run dev                  # http://localhost:3000
 ```
 
-Abra http://localhost:3000.
+### Variáveis (`.env.local`)
 
-## Telas
+| Variável | Padrão | Para quê |
+|---|---|---|
+| `NEXT_PUBLIC_DEMO_MODE` | `true` | `true` = telas com dados fictícios (plano B para gravação). `false` = on-chain. |
+| `NEXT_PUBLIC_RPC_URL` | RPC público de devnet | RPC de devnet. **Use Helius/QuickNode devnet para demo**: o público limita muito (429). Mainnet é recusada. |
+| `NEXT_PUBLIC_MULTISIG_ADDRESS` | vazio | Cofre compartilhado. Sem ele, o endereço vem do `localStorage` após `/setup`. |
+| `NEXT_PUBLIC_BRL_POR_SOL` | `900` | Cotação fixa só para exibir `≈ R$`. Não é oráculo. |
+| `HELIUS_API_KEY` | vazio | Extrato via Helius Enhanced Transactions (fica no servidor). Sem ela, cai em `getSignaturesForAddress`. |
+| `NEXT_PUBLIC_HELIUS_API_KEY` | vazio | Alternativa pública da anterior (não recomendada). |
 
-| Rota | O que faz |
-|------|-----------|
-| `/` | Landing com os dois caminhos: extrato público e entrada da diretoria. |
-| `/entrar` | Conexão de carteira: detecta Phantom, Solflare, MetaMask e qualquer carteira Wallet Standard; opção de modo demo. |
-| `/extrato/lamed` | Extrato público. Timeline de gestões (atual selecionada), resumo do período, 46 movimentos clicáveis. |
-| `/painel` | Diretoria. Saldo total, saldo rendendo, pagamentos pendentes com slots de assinatura. |
-| `/pagamento/[id]` | Detalhe do pagamento. Botão **Assinar**: ao atingir o quórum da faixa muda para *Executado* e entra no extrato. |
-| `/cobranca` | Gera QR Solana Pay (`solana:<cofre>?amount=&label=`) e copia mensagem pronta para o WhatsApp. |
-| `/gestao` | Diretoria atual (5 assentos, mandato), transição de gestão (5 novos signatários com nome e endereço, 3 assinaturas da gestão atual) e comparativo antes/depois. |
-| `/regras` | Política de quórum por faixa de valor (somente leitura). |
-| `/anuidade` | 40 membros, progresso da arrecadação, filtro por status, botão **Cobrar** que abre `/cobranca` pré-preenchida. |
+Nenhuma chave privada é lida pelo app. Toda assinatura passa pela carteira (Phantom, Solflare ou qualquer Wallet Standard).
 
-No extrato: timeline horizontal de gestões filtra os movimentos (gestão atual por padrão); cards de entradas, saídas e saldo do período; barra empilhada (só CSS) com as saídas por categoria; tocar num movimento abre drawer (desktop) ou bottom sheet (mobile) com proponente, assinaturas com horário, hash com botão de copiar e link para o Solscan.
+### SOL de devnet
 
-No painel: card de rendimento com saldo parado, rendimento acumulado, data prevista de uso e botão **Resgatar**, que cria uma proposta sujeita ao mesmo quórum.
+1. Na carteira, selecione a rede **Devnet**.
+2. Em `/setup`, botão **Airdrop 1 SOL**. O faucet do RPC público limita por IP e por dia; se recusar, use https://faucet.solana.com (login GitHub) e cole seu endereço.
+3. Criar o cofre custa a taxa do programa Squads (0 SOL em devnet) + rent (~0,01 SOL). Cada proposta custa ~0,003 SOL de rent, pago por quem propõe.
 
-### Quórum
+### Fluxo on-chain (`NEXT_PUBLIC_DEMO_MODE=false`)
 
-Faixa única: **3 de 5 assinaturas para qualquer valor**, garantida on-chain pelo threshold do multisig (Squads v4). Faixas por valor foram removidas de propósito: a chain só conhece um threshold e qualquer regra extra no front-end seria contornável. Definido em [`lib/regras.ts`](lib/regras.ts).
+1. `/entrar` → conectar carteira.
+2. `/setup` → criar o cofre com 1 a 5 endereços e threshold (padrão 3). O app lê o multisig de volta e só aceita `config_authority = null`. Depositar SOL no vault.
+3. `/painel` → **Nova proposta de pagamento** (descrição vai como memo on-chain). A proposta já sai com a 1ª assinatura.
+4. `/pagamento/<índice>` → outras carteiras signatárias assinam; ao atingir o threshold, **Executar**.
+5. `/extrato/<vault>` → link público, sem carteira, lido da devnet, cada linha com assinatura real e link Solscan.
+6. `/cobranca` → QR Solana Pay para o vault com `reference` única; a tela mostra pendente → confirmado.
+7. `/gestao` → **Iniciar transição**: 5 novos endereços; a gestão atual assina (3 de 5); executar troca os `members` na chain. Comparativo antes/depois lido da devnet.
 
-**Próximo passo (não implementado):** Squads *Spending Limits* para pequenas despesas recorrentes, um teto por período que um diretor gasta sem proposta, também garantido on-chain.
+Para testar sozinho com uma carteira só: crie o cofre com threshold 1.
 
-Pagamentos pendentes no mock: `p01` R$ 620 (2/3), `p02` R$ 900 (1/3), `p03` R$ 1.450 (0/3), `p04` R$ 3.200 (2/3), `p05` R$ 150 (1/3).
+## Rotas
+
+| Rota | Modo demo | Modo chain |
+|---|---|---|
+| `/` | Landing | Landing |
+| `/entrar` | Carteiras + modo demo | Carteiras; papel resolvido por `members[]` |
+| `/setup` | — | Criar/importar multisig, airdrop, depósito, selo de governança |
+| `/painel` | Saldo e pagamentos fictícios | Saldo real do vault, propostas reais, quórum |
+| `/pagamento/nova` | — | Proposta real com memo |
+| `/pagamento/[id]` | Assinatura simulada | Aprovar / rejeitar / executar assinados pela carteira |
+| `/gestao` | Transição simulada | ConfigTransaction real + comparativo |
+| `/cobranca` | QR com endereço fictício | Solana Pay real + verificação por reference |
+| `/extrato/lamed` | Extrato fictício (3 gestões, 46 movimentos) | Cofre deste navegador |
+| `/extrato/<vault>` | Lido da devnet | Lido da devnet (link compartilhável) |
+| `/regras` | Quórum 3 de 5, governança on-chain | idem |
+| `/anuidade` | 40 membros fictícios | idem (lista continua off-chain) |
+| `/api/extrato` | — | Histórico do vault (Helius ou RPC), cache 20 s |
+| `/api/cobranca/verificar` | — | Status de uma cobrança pela reference |
+
+Rotas da diretoria (`/painel`, `/pagamento/*`, `/cobranca`, `/gestao`) exigem carteira conectada **e** signatária. `/extrato/*` é sempre público.
+
+## Scripts de verificação (devnet)
+
+```bash
+npx tsc --noEmit                                  # typecheck
+NEXT_DIST_DIR=.next-verify npm run build          # build sem derrubar o `next dev`
+npx -y tsx scripts/read-check.ts                  # leitura: ProgramConfig, erro traduzido
+npx -y tsx scripts/erros-check.ts                 # tradução de erros + pré-checagem de saldo
+npx -y tsx scripts/map-check.ts <multisig>        # mapeamento Squads → telas
+npx -y tsx scripts/historico-check.ts <vault>     # extrato on-chain
+SMOKE_KEYPAIR_PATH=/fora/do/repo.json npm run smoke:devnet      # ciclo completo (cria, propõe, aprova, executa, troca gestão)
+SMOKE_KEYPAIR_PATH=... npx -y tsx scripts/pay-check.ts <vault>  # Solana Pay ponta a ponta
+```
+
+`SMOKE_KEYPAIR_PATH` aponta para um JSON de secret key de **teste**, fora do repositório, com SOL de devnet. Sem ele o smoke tenta airdrop.
+
+## Arquitetura
+
+```
+lib/solana/
+  config.ts       RPC, modo demo, cotação ≈ R$, assertDevnet()
+  squads.ts       Squads v4: criar (config_authority = null), depositar, propor
+                  com memo, aprovar/rejeitar, executar, ler multisig/propostas,
+                  troca de signatários. Assinador abstrai wallet adapter e Keypair.
+  historico.ts    extrato do vault (Helius ou RPC), casado por assinatura
+  pay.ts          Solana Pay: URL, reference, verificação, tx de pagamento
+  erros.ts        tradução para pt-BR (códigos do Squads incluídos)
+lib/tesouraria/
+  chain-store.ts  cache + polling do estado on-chain
+  mapear.ts       Squads → vocabulário das telas (puro)
+  use-acao.tsx    loading / erro humano / carteira caiu no meio
+lib/auth.ts       identidade = carteira; papel por members[] (chain) ou mock (demo)
+lib/cofre-store.ts  cofre configurado, nomes dos signatários, metadados locais
+lib/store.ts        modo demo (Zustand + persist), intocado
+app/*/…-chain.tsx   versão on-chain; …-demo.tsx / …-view.tsx versão demo
+```
+
+### O que fica on-chain e o que fica no navegador
+
+On-chain: multisig, signatários, threshold, saldo do vault, propostas, aprovações, execuções, descrição+categoria do pagamento (memo), troca de gestão, pagamentos de cobrança (com reference).
+
+No navegador (`localStorage`): nome da entidade, nomes e cargos dos signatários, nomes de destinatários, nomes das gestões, cobranças geradas. São rótulos; a verdade é a chain.
+
+## O que ficou incompleto ou frágil
+
+- **RPC público de devnet** devolve 429 com frequência e batches fora de ordem (tratado). Para vídeo, use um RPC dedicado.
+- **Faucet**: o airdrop pelo app depende do limite do RPC público. O botão explica e aponta o faucet oficial.
+- **Threshold 3 de 5 é o padrão, não uma imposição**: `/setup` aceita de 1 a N. A UI de `/regras` descreve 3 de 5.
+- **Assinantes de cada movimento no extrato** não são reconstruídos a partir da chain (exigiria cruzar cada execução com a Proposal). O drawer mostra a assinatura da transação, o memo e "executada pelo multisig".
+- **Anuidade** (`/anuidade`) continua com lista fictícia; a cobrança individual gera Solana Pay real, mas o status "pago" do membro não é atualizado automaticamente.
+- **Resgate de aplicação** (card de rendimento) existe só no modo demo: devnet não tem rendimento.
+- **Comparativo de transição** depende de metadados salvos no navegador que propôs; em outro navegador aparece só o estado atual da chain.
+- **Spending Limits** do Squads (pequenas despesas sem proposta, também on-chain) não implementados. Próximo passo natural.
+- **Wallet Standard**: o adapter deduplica Phantom/Solflare quando a extensão também se registra pelo padrão; em navegadores sem extensão a lista mostra "não instalada" com link.
 
 ## Stack
 
-Next.js 14 App Router · TypeScript · Tailwind · Zustand + persist · qrcode.react. Fontes: Outfit (texto) e Host Grotesk (títulos, semibold).
+Next.js 14 App Router · TypeScript · Tailwind · Zustand · @solana/web3.js 1.98 · @sqds/multisig 2.1 · @solana/wallet-adapter (react, react-ui, phantom, solflare) · qrcode.react. Fontes: Outfit (texto) e Host Grotesk (títulos, semibold).
 
-Sem backend, sem banco, sem autenticação. Todos os dados vêm de [`lib/mock-data.ts`](lib/mock-data.ts): 3 gestões (2023–24, 2024–25, 2025–26), 15 diretores com papel e endereço fictício, 46 movimentos com categoria, `gestaoId`, proponente, assinaturas com horário e hash base58 de 88 caracteres, 5 pagamentos pendentes, 40 membros.
-
-O estado (assinaturas, pagamentos executados, resgates, transições) persiste no `localStorage` (chave `ligafi-demo-v3`, `skipHydration` + rehidratação após montar para não quebrar o SSR). O botão **resetar demo** no rodapé de todas as páginas apaga tudo e volta ao mock.
-
-## Estrutura
-
-```
-app/
-  page.tsx                      landing
-  extrato/[ligaId]/             extrato público (SSG + store no cliente)
-  painel/                       painel da diretoria
-  pagamento/[id]/               assinatura de pagamento
-  entrar/                       conexão de carteira (wallet adapter: Phantom, Solflare, Wallet Standard)
-  cobranca/                     QR Solana Pay (aceita ?descricao=&valor=)
-  gestao/                       transição de gestão + comparativo
-  regras/                       política de quórum
-  anuidade/                     membros e arrecadação
-components/
-  ui.tsx                        Card, Botao, Topo, Marca, Rotulo
-  assinaturas.tsx               Avatar, SlotsQuorum, Iniciais, LinhaDiretor
-  timeline-gestoes.tsx          timeline horizontal (filtro do extrato)
-  resumo-extrato.tsx            cards do período + barra de saídas por categoria
-  drawer-movimento.tsx          drawer / bottom sheet do movimento
-  rendimento-card.tsx           aplicação, rendimento acumulado, Resgatar
-  confirmacao.tsx               overlay de check animado
-  store-hydration.tsx           rehidrata o persist após montar
-  rodape-demo.tsx               botão "resetar demo"
-lib/
-  types.ts
-  mock-data.ts                  liga, 3 gestões, 15 diretores, 46 movimentos, 5 pagamentos, 40 membros
-  regras.ts                     faixas de quórum, quorumPara(), quorumAtingido()
-  categorias.ts                 rótulos e cores das 6 categorias
-  format.ts                     BRL, datas, horas, iniciais
-  tx.ts                         hash fictício (88 chars base58) + URL Solscan
-  solana/config.ts              RPC devnet via NEXT_PUBLIC_RPC_URL, modo demo, cotação ≈ R$
-  store.ts                      Zustand + persist: assinar(), proporResgate(), iniciarTransicao(), assinarTransicao(), reset()
-  solana/
-    squads.ts                   stubs Squads v4 (criar multisig, propor, aprovar, executar)
-    pay.ts                      montarUrlSolanaPay (real) + stubs Helius/Solana Pay
-```
-
-## Integração real (próximo passo)
-
-Os arquivos em `lib/solana/` descrevem o fluxo com Squads Protocol v4 e Helius, sem SDK instalado. Quando for implementar:
-
-```bash
-npm i @solana/web3.js @sqds/multisig @solana/pay bignumber.js
-```
-
-O multisig **é** a entidade: 5 membros, threshold 3, saldo no Vault PDA. Troca de gestão = proposta de configuração (add/remove member), também com 3 de 5. O cofre nunca muda de dono.
+`@solana/pay` **não** é usada de propósito: a 1.x depende de `@solana/kit`, incompatível com Squads e wallet-adapter em web3.js 1.x. A spec é URL + reference; está implementada em `lib/solana/pay.ts`.
