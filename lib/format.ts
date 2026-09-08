@@ -81,3 +81,7 @@ export function mesesEntre(inicio: string, fim: string): number {
   if (d2 < d1) meses -= 1;
   return Math.max(0, meses);
 }
+
+export function truncarEndereco(e: string, n = 4): string {
+  return e.length > n * 2 + 1 ? `${e.slice(0, n)}…${e.slice(-n)}` : e;
+}

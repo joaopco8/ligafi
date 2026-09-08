@@ -112,8 +112,7 @@ export function PagamentoView({ id }: { id: string }) {
           </span>
         </div>
         <p className="mt-0.5 text-[11px] text-white/50">
-          Faixa {q.faixa.label}: {q.necessarias} assinaturas
-          {q.exigeConselho && ", incluindo o conselho fiscal"}.{" "}
+          Quórum de {q.necessarias} de {TOTAL_SIGNATARIOS}, garantido pelo threshold do cofre.{" "}
           <Link href="/regras" className="text-palha hover:underline">
             ver regras
           </Link>

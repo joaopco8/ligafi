@@ -1,70 +1,56 @@
 "use client";
 
+import { WalletReadyState } from "@solana/wallet-adapter-base";
+import { useWallet } from "@solana/wallet-adapter-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { LinhaDiretor } from "@/components/assinaturas";
-import { Botao, BotaoLink, Card, Marca, Rotulo } from "@/components/ui";
+import { useSaldoSol } from "@/components/header-wallet";
+import { Botao, BotaoLink, Card, Rotulo } from "@/components/ui";
+import { truncarEndereco } from "@/lib/format";
 import { liga } from "@/lib/mock-data";
+import { BRL_POR_SOL } from "@/lib/solana/config";
 import { useDiretor, useGestaoAtual, useLigaFi } from "@/lib/store";
-import { detectarInjetadas, mesclar, ouvirWalletStandard, truncarEndereco, type CarteiraOpcao } from "@/lib/wallets";
 
-const CORES: Record<string, string> = {
-  phantom: "#AB9FF2",
-  solflare: "#FC7227",
-};
+const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 
+/**
+ * Entrada da diretoria. Lista as carteiras do wallet adapter (Phantom e
+ * Solflare sempre; qualquer outra Wallet Standard quando instalada).
+ */
 export default function EntrarPage() {
   const router = useRouter();
-  const carteira = useLigaFi((s) => s.carteira);
+  const { wallets, wallet, select, connect, disconnect, connected, connecting, publicKey } = useWallet();
+  const { saldo } = useSaldoSol();
   const diretores = useLigaFi((s) => s.diretores);
   const diretorAtual = useLigaFi((s) => s.diretorAtual);
+  const carteira = useLigaFi((s) => s.carteira);
   const conectarCarteira = useLigaFi((s) => s.conectarCarteira);
-  const desconectarCarteira = useLigaFi((s) => s.desconectarCarteira);
   const gestaoAtual = useGestaoAtual();
   const diretor = useDiretor(diretorAtual);
 
-  const [opcoes, setOpcoes] = useState<CarteiraOpcao[]>(() => mesclar([]));
-  const [conectando, setConectando] = useState<string | null>(null);
+  const [pendente, setPendente] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
-  const [varredura, setVarredura] = useState(false);
 
-  // Detecta injetadas + Wallet Standard após montar (só existe no cliente).
+  // `select` troca o adapter de forma assíncrona; conecta quando ele estiver ativo.
   useEffect(() => {
-    const encontradas = new Map<string, CarteiraOpcao>();
-    const aplicar = () => setOpcoes(mesclar(Array.from(encontradas.values())));
-    for (const w of detectarInjetadas()) encontradas.set(w.id, w);
-    aplicar();
-    const parar = ouvirWalletStandard((w) => {
-      const atual = encontradas.get(w.id);
-      encontradas.set(w.id, { ...atual, ...w, conectar: w.conectar ?? atual?.conectar });
-      aplicar();
-    });
-    // Algumas extensões injetam com atraso.
-    const t = setTimeout(() => {
-      for (const w of detectarInjetadas()) if (!encontradas.has(w.id)) encontradas.set(w.id, w);
-      aplicar();
-      setVarredura(true);
-    }, 600);
-    return () => {
-      clearTimeout(t);
-      parar();
-    };
-  }, []);
-
-  async function conectar(o: CarteiraOpcao) {
-    if (!o.conectar) return;
-    setErro(null);
-    setConectando(o.id);
-    try {
-      const endereco = await o.conectar();
-      conectarCarteira({ provedor: o.id, nome: o.nome, endereco, rede: o.rede });
-    } catch (e) {
+    if (!pendente || !wallet || wallet.adapter.name !== pendente) return;
+    setPendente(null);
+    connect().catch((e: unknown) => {
       const msg = e instanceof Error ? e.message : String(e);
-      setErro(/reject|denied|cancel|4001/i.test(msg) ? "Conexão recusada na carteira." : msg);
-    } finally {
-      setConectando(null);
+      setErro(/reject|denied|cancel|4001|closed/i.test(msg) ? "Conexão recusada na carteira." : "Não foi possível conectar. Tente de novo.");
+    });
+  }, [pendente, wallet, connect]);
+
+  function escolher(nome: string) {
+    setErro(null);
+    if (wallet?.adapter.name === nome) {
+      connect().catch(() => setErro("Conexão recusada na carteira."));
+      return;
     }
+    setPendente(nome);
+    select(nome as never);
   }
 
   function entrarDemo() {
@@ -72,35 +58,36 @@ export default function EntrarPage() {
     router.push("/painel");
   }
 
-  const signatario = carteira ? diretores.find((d) => d.endereco === carteira.endereco) : undefined;
-  const instaladas = opcoes.filter((o) => o.instalada).length;
+  const endereco = publicKey?.toBase58();
+  const signatario = endereco ? diretores.find((d) => d.endereco === endereco) : undefined;
+  const instaladas = wallets.filter((w) => w.readyState === WalletReadyState.Installed || w.readyState === WalletReadyState.Loadable);
+  const naoInstaladas = wallets.filter((w) => !instaladas.includes(w));
 
   return (
     <main className="flex flex-1 flex-col">
-      <div className="mb-6 flex items-center justify-between">
-        <Marca />
-        <Link href="/" className="text-xs font-medium text-white/55 hover:text-white">
+      <header className="mb-5 flex items-start justify-between gap-3">
+        <div>
+          <Rotulo>Diretoria · {liga.sigla}</Rotulo>
+          <h1 className="mt-1 font-display text-2xl font-semibold tracking-[-0.01em]">Entrar com a carteira</h1>
+          <p className="mt-1 text-sm text-white/55">Cada diretor assina com a própria carteira. Nada de senha compartilhada.</p>
+        </div>
+        <Link href="/" className="shrink-0 text-xs font-medium text-white/55 hover:text-white">
           ← Início
         </Link>
-      </div>
-
-      <header className="mb-5">
-        <Rotulo>Diretoria · {liga.sigla}</Rotulo>
-        <h1 className="mt-1 font-display text-2xl font-semibold tracking-[-0.01em]">Entrar com a carteira</h1>
-        <p className="mt-1 text-sm text-white/55">
-          Cada diretor assina com a própria carteira. Nada de senha compartilhada.
-        </p>
       </header>
 
-      {carteira && carteira.rede !== "demo" ? (
+      {connected && endereco ? (
         <Card className="mb-4 animate-fadeUp border-entrada/40">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <Rotulo>Conectada</Rotulo>
-              <p className="mt-0.5 font-display font-semibold">{carteira.nome}</p>
-              <code className="tabular text-xs text-white/60">{truncarEndereco(carteira.endereco, 6)}</code>
+              <Rotulo>Conectada · {wallet?.adapter.name}</Rotulo>
+              <code className="tabular mt-1 block text-sm text-white">{truncarEndereco(endereco, 6)}</code>
+              <p className="tabular mt-0.5 text-xs text-white/55">
+                ◎ {saldo === null ? "…" : saldo.toLocaleString("pt-BR", { maximumFractionDigits: 4 })}
+                {saldo !== null && <span className="text-white/40"> · ≈ {brl.format(saldo * BRL_POR_SOL)}</span>}
+              </p>
             </div>
-            <button type="button" onClick={desconectarCarteira} className="text-xs text-white/45 hover:text-saida">
+            <button type="button" onClick={() => disconnect().catch(() => {})} className="text-xs text-white/45 hover:text-saida">
               desconectar
             </button>
           </div>
@@ -115,8 +102,7 @@ export default function EntrarPage() {
             ) : (
               <>
                 <p className="text-white/70">
-                  Esta carteira não é signatária da {gestaoAtual.nome}. No MVP você continua em modo demo, assinando
-                  como:
+                  Esta carteira não é signatária da {gestaoAtual.nome}. Em modo demo você assina como:
                 </p>
                 {diretor && (
                   <ul className="mt-2">
@@ -135,37 +121,39 @@ export default function EntrarPage() {
           <div className="mb-2 flex items-baseline justify-between px-1">
             <Rotulo>Carteiras</Rotulo>
             <span className="text-xs text-white/40" aria-live="polite">
-              {varredura ? (instaladas > 0 ? `${instaladas} detectada${instaladas > 1 ? "s" : ""}` : "nenhuma detectada") : "procurando…"}
+              {instaladas.length > 0 ? `${instaladas.length} detectada${instaladas.length > 1 ? "s" : ""}` : "nenhuma detectada"}
             </span>
           </div>
           <ul className="mb-3 flex flex-col gap-2">
-            {opcoes.map((o, i) => {
-              const ocupado = conectando === o.id;
+            {[...instaladas, ...naoInstaladas].map((w, i) => {
+              const nome = w.adapter.name;
+              const instalada = instaladas.includes(w);
+              const ocupado = connecting && wallet?.adapter.name === nome;
               return (
-                <li key={o.id} className="animate-fadeUp" style={{ animationDelay: `${i * 40}ms` }}>
+                <li key={nome} className="animate-fadeUp" style={{ animationDelay: `${i * 40}ms` }}>
                   <Card className="flex items-center gap-3 p-3">
-                    <IconeCarteira opcao={o} />
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={w.adapter.icon} alt="" width={36} height={36} className="h-9 w-9 shrink-0 rounded-xl" />
                     <div className="min-w-0 flex-1">
-                      <p className="font-medium leading-tight">{o.nome}</p>
+                      <p className="font-medium leading-tight">{nome}</p>
                       <p className="text-[11px] text-white/45">
-                        Solana ·{" "}
-                        {o.instalada ? <span className="text-entrada">detectada</span> : "não instalada"}
+                        Solana · {instalada ? <span className="text-entrada">detectada</span> : "não instalada"}
                       </p>
                     </div>
-                    {o.instalada && o.conectar ? (
-                      <Botao className="px-4 py-2 text-sm" onClick={() => conectar(o)} disabled={!!conectando}>
+                    {instalada ? (
+                      <Botao className="px-4 py-2 text-sm" onClick={() => escolher(nome)} disabled={connecting}>
                         {ocupado ? "Abrindo…" : "Conectar"}
                       </Botao>
-                    ) : o.instalar ? (
+                    ) : (
                       <a
-                        href={o.instalar}
+                        href={w.adapter.url}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="rounded-xl border border-white/15 px-3 py-2 text-xs font-medium text-white/70 hover:border-white/40 hover:text-white"
                       >
                         Instalar ↗
                       </a>
-                    ) : null}
+                    )}
                   </Card>
                 </li>
               );
@@ -177,27 +165,11 @@ export default function EntrarPage() {
             Continuar sem carteira (modo demo)
           </Botao>
           <p className="mt-2 text-center text-[11px] text-white/35">
-            Qualquer carteira Solana compatível com Wallet Standard também aparece aqui quando instalada.
+            {carteira?.rede === "demo" ? "Você está em modo demo. " : ""}
+            Qualquer carteira Solana compatível com Wallet Standard aparece aqui quando instalada.
           </p>
         </>
       )}
     </main>
-  );
-}
-
-function IconeCarteira({ opcao }: { opcao: CarteiraOpcao }) {
-  if (opcao.icone) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={opcao.icone} alt="" width={36} height={36} className="h-9 w-9 shrink-0 rounded-xl" />;
-  }
-  const cor = CORES[opcao.id] ?? "#94A3B8";
-  return (
-    <span
-      aria-hidden
-      className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-sm font-semibold"
-      style={{ backgroundColor: `${cor}22`, color: cor, border: `1px solid ${cor}55` }}
-    >
-      {opcao.nome.slice(0, 1)}
-    </span>
   );
 }

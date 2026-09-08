@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Card, Marca, Rotulo } from "@/components/ui";
+import { Card, Rotulo } from "@/components/ui";
 import { formatBRL, formatDataCurta, iniciaisDe } from "@/lib/format";
 import { liga, membros } from "@/lib/mock-data";
 import type { StatusAnuidade } from "@/lib/types";
@@ -33,8 +33,7 @@ export default function AnuidadePage() {
 
   return (
     <main className="flex flex-1 flex-col">
-      <div className="mb-5 flex items-center justify-between">
-        <Marca />
+      <div className="mb-4 flex items-center justify-end">
         <Link href="/painel" className="text-xs font-medium text-white/60 hover:text-white">
           ← Painel
         </Link>

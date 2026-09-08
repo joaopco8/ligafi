@@ -2,7 +2,9 @@ import type { Metadata, Viewport } from "next";
 import { Outfit } from "next/font/google";
 import "./globals.css";
 import { RodapeDemo } from "@/components/rodape-demo";
+import { SolanaProvider } from "@/components/solana-provider";
 import { StoreHydration } from "@/components/store-hydration";
+import { TopBar } from "@/components/top-bar";
 
 const outfit = Outfit({
   subsets: ["latin"],
@@ -39,11 +41,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="min-h-dvh bg-mata font-sans text-white">
-        <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-4 pb-10 pt-5 sm:max-w-lg">
-          <StoreHydration />
-          {children}
-          <RodapeDemo />
-        </div>
+        <SolanaProvider>
+          <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-4 pb-10 pt-4 sm:max-w-lg">
+            <StoreHydration />
+            <TopBar />
+            {children}
+            <RodapeDemo />
+          </div>
+        </SolanaProvider>
       </body>
     </html>
   );

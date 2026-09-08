@@ -35,17 +35,13 @@ No extrato: timeline horizontal de gestões filtra os movimentos (gestão atual 
 
 No painel: card de rendimento com saldo parado, rendimento acumulado, data prevista de uso e botão **Resgatar**, que cria uma proposta sujeita ao mesmo quórum.
 
-### Quórum por faixa de valor
+### Quórum
 
-| Valor | Assinaturas | Condição |
-|-------|-------------|----------|
-| até R$ 200 | 2 | — |
-| R$ 200 a R$ 2.000 | 3 | — |
-| acima de R$ 2.000 | 4 | conselho fiscal obrigatório |
+Faixa única: **3 de 5 assinaturas para qualquer valor**, garantida on-chain pelo threshold do multisig (Squads v4). Faixas por valor foram removidas de propósito: a chain só conhece um threshold e qualquer regra extra no front-end seria contornável. Definido em [`lib/regras.ts`](lib/regras.ts).
 
-Definido em [`lib/regras.ts`](lib/regras.ts) e aplicado em `store.assinar`. Transição de gestão usa quórum fixo de 3 de 5.
+**Próximo passo (não implementado):** Squads *Spending Limits* para pequenas despesas recorrentes, um teto por período que um diretor gasta sem proposta, também garantido on-chain.
 
-Pagamentos pendentes no mock: `p01` R$ 620 (2/3), `p02` R$ 900 (1/3), `p03` R$ 1.450 (0/3), `p04` R$ 3.200 (2/4, falta o conselho fiscal), `p05` R$ 150 (1/2).
+Pagamentos pendentes no mock: `p01` R$ 620 (2/3), `p02` R$ 900 (1/3), `p03` R$ 1.450 (0/3), `p04` R$ 3.200 (2/3), `p05` R$ 150 (1/3).
 
 ## Stack
 
@@ -63,7 +59,7 @@ app/
   extrato/[ligaId]/             extrato público (SSG + store no cliente)
   painel/                       painel da diretoria
   pagamento/[id]/               assinatura de pagamento
-  entrar/                       conexão de carteira (sem SDK)
+  entrar/                       conexão de carteira (wallet adapter: Phantom, Solflare, Wallet Standard)
   cobranca/                     QR Solana Pay (aceita ?descricao=&valor=)
   gestao/                       transição de gestão + comparativo
   regras/                       política de quórum
@@ -85,7 +81,7 @@ lib/
   categorias.ts                 rótulos e cores das 6 categorias
   format.ts                     BRL, datas, horas, iniciais
   tx.ts                         hash fictício (88 chars base58) + URL Solscan
-  wallets.ts                    detecção (injetadas + Wallet Standard) e conexão de carteiras
+  solana/config.ts              RPC devnet via NEXT_PUBLIC_RPC_URL, modo demo, cotação ≈ R$
   store.ts                      Zustand + persist: assinar(), proporResgate(), iniciarTransicao(), assinarTransicao(), reset()
   solana/
     squads.ts                   stubs Squads v4 (criar multisig, propor, aprovar, executar)

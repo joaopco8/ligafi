@@ -4,12 +4,12 @@ import Link from "next/link";
 import { SlotsQuorum } from "@/components/assinaturas";
 import { RendimentoCard } from "@/components/rendimento-card";
 import { BadgeCategoria } from "@/components/resumo-extrato";
-import { BotaoLink, Card, Marca, Rotulo } from "@/components/ui";
+import { BotaoLink, Card, Rotulo } from "@/components/ui";
 import { formatBRL, formatDataCurta } from "@/lib/format";
 import { calcularSaldo, idsDe, liga } from "@/lib/mock-data";
 import { quorumPara, temConselho } from "@/lib/regras";
 import { useGestaoAtual, useLigaFi } from "@/lib/store";
-import { truncarEndereco } from "@/lib/wallets";
+import { truncarEndereco } from "@/lib/format";
 
 export default function PainelPage() {
   const movimentos = useLigaFi((s) => s.movimentos);
@@ -26,8 +26,7 @@ export default function PainelPage() {
 
   return (
     <main className="flex flex-1 flex-col">
-      <div className="mb-5 flex items-center justify-between">
-        <Marca />
+      <div className="mb-4 flex items-center justify-end">
         <nav className="flex items-center gap-3 text-xs font-medium text-white/60">
           <Link href="/anuidade" className="underline-offset-4 hover:text-white hover:underline">
             Anuidade
@@ -104,7 +103,7 @@ export default function PainelPage() {
             <Rotulo>Pagamentos pendentes</Rotulo>
           </h2>
           <Link href="/regras" className="text-xs text-white/40 hover:text-white">
-            quórum por valor →
+            quórum 3 de 5 →
           </Link>
         </div>
 
@@ -190,7 +189,7 @@ export default function PainelPage() {
       <div className="mt-auto flex flex-col gap-2 pt-2">
         <BotaoLink href="/cobranca">+ Nova cobrança</BotaoLink>
         <p className="text-center text-[11px] text-white/40">
-          Nenhum pagamento sai sem o quórum da faixa. O extrato é público.
+          Nenhum pagamento sai sem 3 de 5 assinaturas. O extrato é público.
         </p>
       </div>
     </main>

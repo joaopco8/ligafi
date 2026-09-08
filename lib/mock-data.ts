@@ -122,7 +122,7 @@ function mov(
 }
 
 // ---------------------------------------------------------------------------
-// Movimentos — 46 ao todo. Saídas ≤ R$ 200 têm 2 assinaturas; até R$ 2.000, 3.
+// Movimentos — 46 ao todo. Toda saída tem 3 assinaturas (threshold do cofre).
 // ---------------------------------------------------------------------------
 
 const g2324: Movimento[] = [
@@ -136,10 +136,10 @@ const g2324: Movimento[] = [
   mov("23-08", "g2324", "2023-08-02", "entrada", "outros", "Patrocínio — Livraria Médica", 1000, [], "Transferência"),
   mov("23-09", "g2324", "2023-08-20", "saida", "material", "Manequim de RCP (seminovo)", 850, ["pa", "gc", "if"]),
   mov("23-10", "g2324", "2023-09-05", "entrada", "simposio", "Inscrições — Curso de suturas (12 participantes)", 600),
-  mov("23-11", "g2324", "2023-09-18", "saida", "coffee", "Coffee break — curso de suturas", 180, ["to", "gc"]),
+  mov("23-11", "g2324", "2023-09-18", "saida", "coffee", "Coffee break — curso de suturas", 180, ["to", "gc", "mr"]),
   mov("23-12", "g2324", "2023-10-22", "saida", "palestrante", "Palestrante — Dr. Otávio Lins (honorário)", 600, ["pa", "to", "mr"]),
   mov("23-13", "g2324", "2023-11-15", "entrada", "anuidade", "Anuidade 2023 — 4 membros (2º semestre)", 480),
-  mov("23-14", "g2324", "2023-12-06", "saida", "outros", "Impressão de certificados", 90, ["if", "pa"]),
+  mov("23-14", "g2324", "2023-12-06", "saida", "outros", "Impressão de certificados", 90, ["if", "pa", "mr"]),
   mov("23-15", "g2324", "2024-02-10", "saida", "material", "Reposição — luvas e fios de sutura", 210, ["to", "if", "gc"]),
 ];
 
@@ -153,7 +153,7 @@ const g2425: Movimento[] = [
   mov("24-07", "g2425", "2024-06-20", "saida", "material", "Material — laringoscópio de treino (via aérea)", 1150, ["sa", "hc", "vp"]),
   mov("24-08", "g2425", "2024-08-05", "entrada", "outros", "Patrocínio — Clínica Vida", 1500, [], "Transferência"),
   mov("24-09", "g2425", "2024-08-22", "entrada", "simposio", "Inscrições — Curso de ECG (10 participantes)", 500),
-  mov("24-10", "g2425", "2024-09-03", "saida", "coffee", "Coffee break — curso de ECG", 160, ["hc", "vp"]),
+  mov("24-10", "g2425", "2024-09-03", "saida", "coffee", "Coffee break — curso de ECG", 160, ["hc", "vp", "lt"]),
   mov("24-11", "g2425", "2024-09-30", "saida", "palestrante", "Palestrante — Dra. Paula Sant'Anna (honorário)", 650, ["db", "hc", "lt"]),
   mov("24-12", "g2425", "2024-10-17", "saida", "material", "Material — fios de sutura e agulhas", 390, ["sa", "db", "lt"]),
   mov("24-13", "g2425", "2024-11-12", "entrada", "anuidade", "Anuidade 2024 — 3 membros (2º semestre)", 360),
@@ -166,7 +166,7 @@ const g2526: Movimento[] = [
   mov("25-02", "g2526", "2025-04-14", "saida", "material", "Material — kit de imobilização", 520, ["ab", "lm", "cr"]),
   mov("25-03", "g2526", "2025-05-22", "saida", "palestrante", "Palestrante — Dr. Bruno Tavares (honorário)", 700, ["cr", "rs", "jn"]),
   mov("25-04", "g2526", "2025-08-01", "entrada", "simposio", "Inscrições — Curso de ECG (8 participantes)", 640),
-  mov("25-05", "g2526", "2025-08-05", "saida", "outros", "Impressão de certificados — curso de ECG", 95, ["cr", "lm"]),
+  mov("25-05", "g2526", "2025-08-05", "saida", "outros", "Impressão de certificados — curso de ECG", 95, ["cr", "lm", "jn"]),
   mov("25-06", "g2526", "2025-08-14", "saida", "outros", "Camisetas da liga — lote de 40 unidades", 1280, ["ab", "lm", "rs"]),
   mov("25-07", "g2526", "2025-08-18", "entrada", "outros", "Patrocínio — Farmácia Escola", 1500, [], "Transferência"),
   mov("25-08", "g2526", "2025-08-25", "saida", "palestrante", "Palestrante — Dr. Henrique Alves (honorário)", 800, ["ab", "cr", "jn"]),
@@ -186,8 +186,7 @@ export const movimentos: Movimento[] = [...g2324, ...g2425, ...g2526].sort((a, b
 );
 
 // ---------------------------------------------------------------------------
-// Pagamentos aguardando assinaturas (gestão atual). Quórum depende do valor:
-// ≤ 200 → 2 · ≤ 2.000 → 3 · > 2.000 → 4 incluindo o conselho fiscal (rs).
+// Pagamentos aguardando assinaturas (gestão atual). Quórum único: 3 de 5.
 // ---------------------------------------------------------------------------
 
 export const pagamentos: Pagamento[] = [
@@ -236,7 +235,7 @@ export const pagamentos: Pagamento[] = [
   {
     id: "p04",
     descricao: "Manequim de simulação avançada",
-    detalhe: "Simulador de paciente para treino de via aérea e RCP. Acima de R$ 2.000: exige 4 assinaturas com o conselho fiscal.",
+    detalhe: "Simulador de paciente para treino de via aérea e RCP. Orçamento comparado com dois fornecedores.",
     valor: 3200,
     categoria: "material",
     destinatario: "SimMed Brasil",
@@ -250,7 +249,7 @@ export const pagamentos: Pagamento[] = [
   {
     id: "p05",
     descricao: "Impressão de crachás — III Simpósio",
-    detalhe: "60 crachás com cordão. Até R$ 200: bastam 2 assinaturas.",
+    detalhe: "60 crachás com cordão para o simpósio.",
     valor: 150,
     categoria: "outros",
     destinatario: "Gráfica Rápida",

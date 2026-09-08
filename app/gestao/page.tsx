@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { LinhaDiretor, SlotsQuorum } from "@/components/assinaturas";
 import { ConfirmacaoOverlay } from "@/components/confirmacao";
-import { Botao, Card, Marca, Rotulo } from "@/components/ui";
+import { Botao, Card, Rotulo } from "@/components/ui";
 import { formatBRL, formatDataHora, formatMesAno, formatPeriodo, iniciaisDe, mesesEntre, hojeISO } from "@/lib/format";
 import { calcularSaldo, enderecoFicticio, idsDe, liga } from "@/lib/mock-data";
 import { ASSENTOS, PAPEL_LABEL } from "@/lib/regras";
@@ -94,8 +94,7 @@ export default function GestaoPage() {
 
   return (
     <main className="flex flex-1 flex-col">
-      <div className="mb-5 flex items-center justify-between">
-        <Marca />
+      <div className="mb-4 flex items-center justify-end">
         <Link href="/painel" className="text-xs font-medium text-white/60 hover:text-white">
           ← Painel
         </Link>

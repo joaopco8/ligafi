@@ -6,7 +6,7 @@ import { Iniciais } from "@/components/assinaturas";
 import { DrawerMovimento } from "@/components/drawer-movimento";
 import { ResumoExtrato } from "@/components/resumo-extrato";
 import { TODAS, TimelineGestoes } from "@/components/timeline-gestoes";
-import { Card, Marca, Rotulo } from "@/components/ui";
+import { Card, Rotulo } from "@/components/ui";
 import { categorias } from "@/lib/categorias";
 import { formatBRL, formatData, formatMesAno } from "@/lib/format";
 import { calcularSaldo, idsDe } from "@/lib/mock-data";
@@ -45,8 +45,7 @@ export function ExtratoView({ liga }: { liga: Liga }) {
 
   return (
     <main className="flex flex-1 flex-col">
-      <div className="mb-5 flex items-center justify-between">
-        <Marca />
+      <div className="mb-4 flex items-center justify-end">
         <span className="rounded-full border border-entrada/40 bg-entrada/10 px-2.5 py-1 text-[11px] font-semibold text-entrada">
           ● Extrato público
         </span>
@@ -64,9 +63,9 @@ export function ExtratoView({ liga }: { liga: Liga }) {
             <p className="tabular mt-0.5 font-display text-3xl font-semibold tracking-[-0.02em] text-palha">{formatBRL(saldo)}</p>
           </div>
           <Link href="/regras" className="text-right text-[11px] leading-tight text-white/50 hover:text-white">
-            2 a 4 assinaturas
+            3 de 5 assinaturas
             <br />
-            por saída, conforme o valor <span aria-hidden>→</span>
+            por saída, garantido on-chain <span aria-hidden>→</span>
           </Link>
         </div>
       </Card>

@@ -1,4 +1,4 @@
-import { BotaoLink, Marca } from "@/components/ui";
+import { BotaoLink } from "@/components/ui";
 import { liga } from "@/lib/mock-data";
 
 const pilares = [
@@ -7,8 +7,8 @@ const pilares = [
     texto: "O dinheiro fica num cofre da liga, não na conta pessoal de um diretor.",
   },
   {
-    titulo: "Assinaturas por valor",
-    texto: "De 2 a 4 diretores assinam cada saída, conforme o valor. Acima de R$ 2.000, o conselho fiscal é obrigatório.",
+    titulo: "3 de 5 assinaturas",
+    texto: "Nenhum pagamento sai sem três diretores assinarem. Regra garantida pela rede, não pelo app.",
   },
   {
     titulo: "Extrato público",
@@ -19,8 +19,6 @@ const pilares = [
 export default function HomePage() {
   return (
     <main className="flex flex-1 flex-col">
-      <Marca tamanho={48} className="mb-12" />
-
       <section className="animate-fadeUp">
         <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.16em] text-palha/90">
           Tesouraria para ligas, atléticas e DAs
