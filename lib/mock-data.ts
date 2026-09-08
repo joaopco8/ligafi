@@ -282,9 +282,11 @@ const DATAS_PAGAMENTO = ["2026-09-05", "2026-08-20", "2026-08-10"];
 export const membros: Membro[] = NOMES_MEMBROS.map((nome, i) => {
   // Os 3 primeiros batem com as entradas individuais do extrato; os 24 seguintes
   // entraram no lote "Anuidade 2026 — 24 membros" (10/03); os 13 últimos pendentes.
-  if (i < 3) return { id: `m${i + 1}`, nome, status: "pago", pagoEm: DATAS_PAGAMENTO[i] };
-  if (i < 27) return { id: `m${i + 1}`, nome, status: "pago", pagoEm: "2026-03-10" };
-  return { id: `m${i + 1}`, nome, status: "pendente" };
+  const id = `m${i + 1}`;
+  const endereco = enderecoFicticio(`membro:${id}`);
+  if (i < 3) return { id, nome, endereco, status: "pago", pagoEm: DATAS_PAGAMENTO[i] };
+  if (i < 27) return { id, nome, endereco, status: "pago", pagoEm: "2026-03-10" };
+  return { id, nome, endereco, status: "pendente" };
 });
 
 // ---------------------------------------------------------------------------

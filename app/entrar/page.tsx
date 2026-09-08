@@ -11,6 +11,7 @@ import { Botao, BotaoLink, Card, Rotulo } from "@/components/ui";
 import { truncarEndereco } from "@/lib/format";
 import { liga } from "@/lib/mock-data";
 import { BRL_POR_SOL } from "@/lib/solana/config";
+import { ROTULO_PAPEL, useIdentidade } from "@/lib/auth";
 import { useDiretor, useGestaoAtual, useLigaFi } from "@/lib/store";
 
 const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
@@ -29,6 +30,7 @@ export default function EntrarPage() {
   const conectarCarteira = useLigaFi((s) => s.conectarCarteira);
   const gestaoAtual = useGestaoAtual();
   const diretor = useDiretor(diretorAtual);
+  const identidade = useIdentidade();
 
   const [pendente, setPendente] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -92,28 +94,40 @@ export default function EntrarPage() {
             </button>
           </div>
           <div className="mt-4 border-t border-white/[0.06] pt-4 text-sm">
+            <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-white/45">
+              Papel:{" "}
+              <span className={identidade.papel === "signatario" ? "text-entrada" : "text-white"}>
+                {ROTULO_PAPEL[identidade.papel]}
+              </span>
+            </p>
             {signatario ? (
               <>
-                <p className="text-entrada">Carteira reconhecida como signatária da {gestaoAtual.nome}.</p>
+                <p className="mt-1 text-entrada">Carteira reconhecida como signatária da {gestaoAtual.nome}.</p>
                 <ul className="mt-2">
                   <LinhaDiretor diretor={signatario.id} />
                 </ul>
               </>
-            ) : (
+            ) : identidade.papel === "signatario" ? (
               <>
-                <p className="text-white/70">
-                  Esta carteira não é signatária da {gestaoAtual.nome}. Em modo demo você assina como:
-                </p>
+                <p className="mt-1 text-white/70">Modo demo: esta carteira assina como</p>
                 {diretor && (
                   <ul className="mt-2">
                     <LinhaDiretor diretor={diretor.id} />
                   </ul>
                 )}
               </>
+            ) : (
+              <p className="mt-1 text-white/70">
+                Esta carteira não é signatária da {gestaoAtual.nome}. Você pode ver o extrato público, mas não propor
+                nem assinar pagamentos.
+              </p>
             )}
           </div>
-          <BotaoLink href="/painel" className="mt-4 w-full">
-            Ir para o painel
+          <BotaoLink
+            href={identidade.papel === "signatario" ? "/painel" : `/extrato/${liga.id}`}
+            className="mt-4 w-full"
+          >
+            {identidade.papel === "signatario" ? "Ir para o painel" : "Ver extrato público"}
           </BotaoLink>
         </Card>
       ) : (

@@ -12,7 +12,7 @@ const HeaderWallet = dynamic(() => import("@/components/header-wallet").then((m)
   ),
 });
 
-/** Selo de rede. Sempre visível: aqui não há stablecoin, é SOL de devnet. */
+/** Selo de rede. Vai ao lado de valores on-chain: aqui não há stablecoin, é SOL de devnet. */
 export function BadgeRede({ className = "" }: { className?: string }) {
   return (
     <span
@@ -27,15 +27,9 @@ export function BadgeRede({ className = "" }: { className?: string }) {
 
 export function TopBar() {
   return (
-    <header className="mb-6 flex items-center justify-between gap-3">
-      <div className="flex items-center gap-3">
-        <Marca tamanho={32} />
-        <BadgeRede className="hidden sm:inline-flex" />
-      </div>
-      <div className="flex items-center gap-2">
-        <BadgeRede className="sm:hidden" />
-        <HeaderWallet />
-      </div>
+    <header className="mb-8 flex items-center justify-between gap-3 pt-2">
+      <Marca tamanho={34} />
+      <HeaderWallet />
     </header>
   );
 }

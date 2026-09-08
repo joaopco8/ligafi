@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { LinhaDiretor, SlotsQuorum } from "@/components/assinaturas";
 import { ConfirmacaoOverlay } from "@/components/confirmacao";
+import { RequerSignatario } from "@/components/requer-signatario";
 import { Botao, Card, Rotulo } from "@/components/ui";
 import { formatBRL, formatDataHora, formatMesAno, formatPeriodo, iniciaisDe, mesesEntre, hojeISO } from "@/lib/format";
 import { calcularSaldo, enderecoFicticio, idsDe, liga } from "@/lib/mock-data";
@@ -26,6 +27,14 @@ function linhasVazias(): NovoSignatario[] {
 }
 
 export default function GestaoPage() {
+  return (
+    <RequerSignatario titulo="Gestão">
+      <GestaoConteudo />
+    </RequerSignatario>
+  );
+}
+
+function GestaoConteudo() {
   const gestoes = useLigaFi((s) => s.gestoes);
   const movimentos = useLigaFi((s) => s.movimentos);
   const transicao = useLigaFi((s) => s.transicao);

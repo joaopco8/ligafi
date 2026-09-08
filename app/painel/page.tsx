@@ -3,21 +3,31 @@
 import Link from "next/link";
 import { SlotsQuorum } from "@/components/assinaturas";
 import { RendimentoCard } from "@/components/rendimento-card";
+import { RequerSignatario } from "@/components/requer-signatario";
 import { BadgeCategoria } from "@/components/resumo-extrato";
 import { BotaoLink, Card, Rotulo } from "@/components/ui";
 import { formatBRL, formatDataCurta } from "@/lib/format";
 import { calcularSaldo, idsDe, liga } from "@/lib/mock-data";
 import { quorumPara, temConselho } from "@/lib/regras";
+import { useIdentidade } from "@/lib/auth";
 import { useGestaoAtual, useLigaFi } from "@/lib/store";
 import { truncarEndereco } from "@/lib/format";
 
 export default function PainelPage() {
+  return (
+    <RequerSignatario>
+      <PainelConteudo />
+    </RequerSignatario>
+  );
+}
+
+function PainelConteudo() {
   const movimentos = useLigaFi((s) => s.movimentos);
   const pagamentos = useLigaFi((s) => s.pagamentos);
   const diretores = useLigaFi((s) => s.diretores);
   const aplicacao = useLigaFi((s) => s.aplicacao);
   const transicao = useLigaFi((s) => s.transicao);
-  const carteira = useLigaFi((s) => s.carteira);
+  const identidade = useIdentidade();
   const gestaoAtual = useGestaoAtual();
 
   const saldoTotal = calcularSaldo(movimentos);
@@ -52,16 +62,16 @@ export default function PainelPage() {
         <Link
           href="/entrar"
           className={`mt-1 inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium ${
-            carteira && carteira.rede !== "demo"
+            identidade.conectada
               ? "border-entrada/40 text-entrada"
               : "border-white/15 text-white/60 hover:border-white/40 hover:text-white"
           }`}
         >
-          <span className={`h-1.5 w-1.5 rounded-full ${carteira && carteira.rede !== "demo" ? "bg-entrada" : "bg-white/30"}`} />
-          {carteira && carteira.rede !== "demo"
-            ? `${carteira.nome} · ${truncarEndereco(carteira.endereco)}`
-            : carteira
-              ? "modo demo"
+          <span className={`h-1.5 w-1.5 rounded-full ${identidade.conectada ? "bg-entrada" : "bg-white/30"}`} />
+          {identidade.conectada && identidade.endereco
+            ? `${identidade.diretor?.iniciais ?? "?"} · ${truncarEndereco(identidade.endereco)}`
+            : identidade.sessaoDemo
+              ? `modo demo · ${identidade.diretor?.iniciais ?? ""}`
               : "conectar carteira"}
         </Link>
       </header>

@@ -42,7 +42,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-dvh bg-mata font-sans text-white">
         <SolanaProvider>
-          <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-4 pb-10 pt-4 sm:max-w-lg">
+          <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-4 pb-10 pt-6 sm:max-w-lg sm:pt-8">
             <StoreHydration />
             <TopBar />
             {children}

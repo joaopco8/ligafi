@@ -101,6 +101,8 @@ export type StatusAnuidade = "pago" | "pendente";
 export interface Membro {
   id: string;
   nome: string;
+  /** Carteira do membro (fictícia no mock). */
+  endereco: string;
   status: StatusAnuidade;
   /** YYYY-MM-DD quando pago. */
   pagoEm?: string;
