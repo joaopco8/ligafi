@@ -38,7 +38,7 @@ export function PainelChain() {
           <Link href="/regras" className="underline-offset-4 hover:text-white hover:underline">
             Regras
           </Link>
-          <Link href={`/extrato/${liga.id}`} className="underline-offset-4 hover:text-white hover:underline">
+          <Link href={info ? `/extrato/${info.vaultPda.toBase58()}` : `/extrato/${liga.id}`} className="underline-offset-4 hover:text-white hover:underline">
             Extrato →
           </Link>
         </nav>
