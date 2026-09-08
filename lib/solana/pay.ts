@@ -1,121 +1,117 @@
 /**
- * lib/solana/pay.ts
+ * lib/solana/pay.ts — Solana Pay (transfer request) sem SDK.
  *
- * Cobranças via Solana Pay e leitura de histórico via Helius.
- * A única função implementada é `montarUrlSolanaPay`, que é pura e já é
- * usada pela tela /cobranca. O resto são STUBS comentados.
+ * Spec: https://docs.solanapay.com/spec
+ *   solana:<recipient>?amount=<SOL>&reference=<pubkey>&label=…&message=…&memo=…
  *
- * Quando for implementar:
- *   npm i @solana/web3.js @solana/pay bignumber.js
- *
- * Referência: https://docs.solanapay.com/spec
+ * `reference` é uma chave pública aleatória incluída como conta somente
+ * leitura na transferência. Como nenhuma outra transação toca essa conta,
+ * `getSignaturesForAddress(reference)` encontra o pagamento com certeza.
+ * Puro (sem React): roda no servidor (route handler) e em scripts.
  */
 
-// Tipos mínimos; a integração real entra na Fase 6.
-export type Address = string;
-export type Signature = string;
+import { Connection, Keypair, LAMPORTS_PER_SOL, PublicKey, SystemProgram, Transaction, TransactionInstruction } from "@solana/web3.js";
+import { MEMO_PROGRAM_ID } from "./squads";
 
 export interface CobrancaParams {
-  /** Endereço que recebe — no LigaFi é sempre o Vault PDA do multisig. */
-  destinatario: Address;
-  /** Valor em unidades do token (ex.: 120.5). */
+  /** Endereço que recebe: no LigaFi, o Vault PDA do multisig. */
+  destinatario: string;
+  /** Valor em SOL (ex.: 0.05). */
   valor: number;
   /** Texto exibido na carteira do pagador. */
   label: string;
-  /** Mint do SPL token (BRZ/USDC). `undefined` = SOL nativo. */
-  splToken?: Address;
-  /** Chave pública aleatória incluída na tx para localizá-la depois. */
-  reference?: Address;
+  /** Chave pública aleatória que identifica esta cobrança. */
+  reference?: string;
   message?: string;
   memo?: string;
+  /** Mint de SPL token. Ausente = SOL nativo. */
+  splToken?: string;
 }
 
-/**
- * Monta a URL `solana:<endereco>?amount=<valor>&label=<descricao>`.
- * Pura, síncrona, sem SDK. É o que o QR code da tela /cobranca codifica.
- */
+/** Valor SOL como decimal simples, sem notação científica (spec exige). */
+export function formatAmount(valor: number): string {
+  return valor.toFixed(9).replace(/\.?0+$/, "");
+}
+
 export function montarUrlSolanaPay(p: CobrancaParams): string {
   const q = new URLSearchParams();
-  q.set("amount", String(p.valor));
-  q.set("label", p.label);
+  q.set("amount", formatAmount(p.valor));
   if (p.splToken) q.set("spl-token", p.splToken);
   if (p.reference) q.set("reference", p.reference);
+  q.set("label", p.label);
   if (p.message) q.set("message", p.message);
   if (p.memo) q.set("memo", p.memo);
-  return `solana:${p.destinatario}?${q.toString()}`;
+  // URLSearchParams codifica espaço como "+"; a spec pede %20.
+  return `solana:${p.destinatario}?${q.toString().replace(/\+/g, "%20")}`;
 }
 
-export interface CobrancaCriada {
-  url: string;
-  reference: Address;
-  criadaEm: string;
+/** Nova reference: só a chave pública é usada; a privada é descartada. */
+export function gerarReference(): string {
+  return Keypair.generate().publicKey.toBase58();
 }
 
-const NAO_IMPLEMENTADO = "lib/solana/pay.ts: stub — integração Solana Pay/Helius ainda não implementada.";
-
-/**
- * Cria uma cobrança rastreável: gera `reference = Keypair.generate().publicKey`
- * e devolve a URL com ela embutida.
- *
- * Fluxo real: `encodeURL({ recipient, amount: new BigNumber(valor), splToken, reference, label, message, memo })` de @solana/pay.
- */
-export async function criarCobranca(_p: Omit<CobrancaParams, "reference">): Promise<CobrancaCriada> {
-  throw new Error(NAO_IMPLEMENTADO);
+export interface StatusCobranca {
+  status: "pendente" | "confirmado" | "valor_diferente";
+  sig?: string;
+  lamportsRecebidos?: number;
+  timestamp?: number | null;
+  pagador?: string;
 }
 
 /**
- * Aguarda o pagamento aparecer on-chain.
- *
- * Fluxo real: poll `findReference(connection, reference)` e depois
- * `validateTransfer(connection, signature, { recipient, amount, splToken, reference })`.
- * Alternativa: webhook Helius filtrando por `reference` (ver `registrarWebhookHelius`).
+ * Procura a transação que carrega `reference` e valida que o destinatário
+ * recebeu pelo menos o esperado.
  */
-export async function aguardarPagamento(
-  _reference: Address,
-  _opts?: { timeoutMs?: number },
-): Promise<Signature> {
-  throw new Error(NAO_IMPLEMENTADO);
+export async function verificarCobranca(
+  connection: Connection,
+  p: { reference: string; destinatario: string; lamportsEsperados: number },
+): Promise<StatusCobranca> {
+  const ref = new PublicKey(p.reference);
+  const sigs = await connection.getSignaturesForAddress(ref, { limit: 5 }, "confirmed");
+  const ok = sigs.filter((s) => !s.err);
+  if (ok.length === 0) return { status: "pendente" };
+
+  for (const s of ok) {
+    const tx = await connection.getParsedTransaction(s.signature, { commitment: "confirmed", maxSupportedTransactionVersion: 0 });
+    if (!tx?.meta) continue;
+    const chaves = tx.transaction.message.accountKeys.map((k) => k.pubkey.toBase58());
+    const idx = chaves.indexOf(p.destinatario);
+    if (idx < 0) continue;
+    const delta = tx.meta.postBalances[idx] - tx.meta.preBalances[idx];
+    if (delta <= 0) continue;
+    const pagador = tx.transaction.message.accountKeys.find((k) => k.signer)?.pubkey.toBase58();
+    return {
+      status: delta >= p.lamportsEsperados ? "confirmado" : "valor_diferente",
+      sig: s.signature,
+      lamportsRecebidos: delta,
+      timestamp: tx.blockTime ?? null,
+      pagador,
+    };
+  }
+  return { status: "pendente" };
 }
 
-export interface TransacaoHistorico {
-  signature: Signature;
-  /** Unix timestamp em segundos. */
-  timestamp: number;
-  tipo: "entrada" | "saida";
-  valor: number;
-  contraparte: Address;
+/**
+ * Monta a transação que uma carteira faz ao ler o QR: transferência com a
+ * `reference` como conta somente leitura + memo opcional. Usado no teste
+ * headless e útil para "pagar com a carteira conectada" no app.
+ */
+export function montarTransacaoPagamento(p: {
+  pagador: PublicKey;
+  destinatario: PublicKey;
+  lamports: number;
+  reference: PublicKey;
   memo?: string;
-  /** Preenchido em saídas: membros que aprovaram no Squads. */
-  aprovadores?: Address[];
+}): Transaction {
+  const ix = SystemProgram.transfer({ fromPubkey: p.pagador, toPubkey: p.destinatario, lamports: p.lamports });
+  ix.keys.push({ pubkey: p.reference, isSigner: false, isWritable: false });
+  const tx = new Transaction().add(ix);
+  if (p.memo) {
+    tx.add(new TransactionInstruction({ programId: MEMO_PROGRAM_ID, keys: [{ pubkey: p.pagador, isSigner: true, isWritable: false }], data: Buffer.from(p.memo, "utf8") }));
+  }
+  return tx;
 }
 
-/**
- * Lê o histórico do Vault para montar o extrato público.
- *
- * Fluxo real (Helius Enhanced Transactions API):
- *   GET https://api.helius.xyz/v0/addresses/{vaultPda}/transactions?api-key=...&type=TRANSFER
- *   Mapear `nativeTransfers` / `tokenTransfers` para entrada/saida conforme
- *   `toUserAccount === vaultPda`. Para saídas, cruzar com a Proposal do
- *   Squads (via `transactionIndex` no memo) para obter os aprovadores.
- */
-export async function lerHistoricoHelius(
-  _vaultPda: Address,
-  _opts?: { limite?: number; antesDe?: Signature },
-): Promise<TransacaoHistorico[]> {
-  throw new Error(NAO_IMPLEMENTADO);
-}
-
-/**
- * Registra um webhook Helius para o Vault. Substitui o polling:
- * cada transferência chega em tempo real e o extrato atualiza sozinho.
- *
- * Fluxo real:
- *   POST https://api.helius.xyz/v0/webhooks?api-key=...
- *   { webhookURL, transactionTypes: ["TRANSFER"], accountAddresses: [vaultPda], webhookType: "enhanced" }
- */
-export async function registrarWebhookHelius(
-  _vaultPda: Address,
-  _webhookUrl: string,
-): Promise<{ webhookId: string }> {
-  throw new Error(NAO_IMPLEMENTADO);
+export function solParaLamports(sol: number): number {
+  return Math.round(sol * LAMPORTS_PER_SOL);
 }

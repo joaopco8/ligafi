@@ -49,6 +49,18 @@ export interface CofreLocal {
   gestoes?: GestaoLocal[];
   transicao?: TransicaoLocal | null;
   ultimaTransicao?: TransicaoLocal | null;
+  /** Cobranças Solana Pay geradas neste navegador. */
+  cobrancas?: CobrancaLocal[];
+}
+
+export interface CobrancaLocal {
+  reference: string;
+  descricao: string;
+  lamports: number;
+  criadaEm: string;
+  status?: "pendente" | "confirmado" | "valor_diferente";
+  sig?: string;
+  lamportsRecebidos?: number;
 }
 
 interface CofreState {
@@ -58,6 +70,8 @@ interface CofreState {
   anotarProposta: (indice: bigint | number | string, meta: CofreLocal["propostas"][string]) => void;
   renomearSignatario: (endereco: string, nome: string, cargo: string) => void;
   atualizarCofre: (patch: Partial<CofreLocal>) => void;
+  registrarCobranca: (c: CobrancaLocal) => void;
+  atualizarCobranca: (reference: string, patch: Partial<CobrancaLocal>) => void;
   limparCofre: () => void;
 }
 
@@ -84,6 +98,14 @@ export const useCofre = create<CofreState>()(
       atualizarCofre: (patch) => {
         const c = get().cofre;
         if (c) set({ cofre: { ...c, ...patch } });
+      },
+      registrarCobranca: (cob) => {
+        const c = get().cofre;
+        if (c) set({ cofre: { ...c, cobrancas: [...(c.cobrancas ?? []).filter((x) => x.reference !== cob.reference), cob].slice(-50) } });
+      },
+      atualizarCobranca: (reference, patch) => {
+        const c = get().cofre;
+        if (c) set({ cofre: { ...c, cobrancas: (c.cobrancas ?? []).map((x) => (x.reference === reference ? { ...x, ...patch } : x)) } });
       },
       limparCofre: () => set({ cofre: null }),
     }),
