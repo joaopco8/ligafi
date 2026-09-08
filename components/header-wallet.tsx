@@ -43,7 +43,30 @@ export function useSaldoSol() {
   return { saldo, erro };
 }
 
+/** Ping do RPC a cada 30 s. `false` = devnet fora do ar. */
+export function useSaudeRpc(): boolean | null {
+  const { connection } = useConnection();
+  const [ok, setOk] = useState<boolean | null>(null);
+  useEffect(() => {
+    let ativo = true;
+    const ping = () =>
+      connection
+        .getSlot("processed")
+        .then(() => ativo && setOk(true))
+        .catch(() => ativo && setOk(false));
+    ping();
+    const t = setInterval(ping, 30_000);
+    return () => {
+      ativo = false;
+      clearInterval(t);
+    };
+  }, [connection]);
+  return ok;
+}
+
 export function HeaderWallet() {
+  const saude = useSaudeRpc();
+  const indisponivel = saude === false;
   const { publicKey, wallet, connected, connecting, disconnect } = useWallet();
   const { setVisible } = useWalletModal();
   const { saldo, erro } = useSaldoSol();
@@ -73,8 +96,16 @@ export function HeaderWallet() {
     return () => document.removeEventListener("mousedown", fora);
   }, [aberto]);
 
+  const avisoRpc = indisponivel ? (
+    <span className="mr-2 inline-flex items-center gap-1 rounded-full border border-saida/40 px-2 py-1 text-[10px] font-medium text-saida" title="O RPC de devnet não respondeu ao último ping.">
+      <span className="h-1.5 w-1.5 rounded-full bg-saida" /> devnet indisponível
+    </span>
+  ) : null;
+
   if (!connected || !publicKey) {
     return (
+      <span className="inline-flex items-center">
+      {avisoRpc}
       <button
         type="button"
         onClick={() => setVisible(true)}
@@ -84,13 +115,15 @@ export function HeaderWallet() {
         <span className="h-1.5 w-1.5 rounded-full bg-white/30" />
         {connecting ? "Conectando…" : "Conectar carteira"}
       </button>
+      </span>
     );
   }
 
   const endereco = publicKey.toBase58();
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative inline-flex items-center">
+      {avisoRpc}
       <button
         type="button"
         onClick={() => setAberto((v) => !v)}

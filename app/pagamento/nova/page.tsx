@@ -46,7 +46,7 @@ function NovaProposta() {
   const wallet = useWallet();
   const { info, connection, recarregar } = useChain();
   const anotarProposta = useCofre((s) => s.anotarProposta);
-  const { ocupado, erro, aviso, rodar } = useAcao();
+  const { ocupado, erro, aviso, rodar, limpar } = useAcao({ conectada: wallet.connected });
 
   const [destinatario, setDestinatario] = useState("");
   const [destinatarioNome, setDestinatarioNome] = useState("");
@@ -89,7 +89,7 @@ function NovaProposta() {
         acao={<BadgeRede className="mt-1" />}
       />
 
-      <Mensagens erro={erro} aviso={aviso} />
+      <Mensagens erro={erro} aviso={aviso} onFechar={limpar} />
 
       <form onSubmit={submeter} className="flex flex-col gap-4">
         <Card className="flex flex-col gap-4">

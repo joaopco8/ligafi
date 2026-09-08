@@ -10,6 +10,7 @@ import { truncarEndereco } from "@/lib/format";
 import { liga } from "@/lib/mock-data";
 import { DEMO_MODE } from "@/lib/solana/config";
 import { useGestaoAtual, useLigaFi } from "@/lib/store";
+import { useChainStore } from "@/lib/tesouraria/chain-store";
 
 /**
  * Gate das rotas da diretoria. Só renderiza `children` para signatário
@@ -20,6 +21,9 @@ export function RequerSignatario({ children, titulo = "Área da diretoria" }: { 
   const { setVisible } = useWalletModal();
   const gestaoAtual = useGestaoAtual();
   const conectarCarteira = useLigaFi((s) => s.conectarCarteira);
+  const chainErro = useChainStore((s) => s.erro);
+  const chainInfo = useChainStore((s) => s.info);
+  const chainAtualizar = useChainStore((s) => s.atualizar);
 
   if (id.carregando) {
     return (
@@ -35,6 +39,24 @@ export function RequerSignatario({ children, titulo = "Área da diretoria" }: { 
   if (id.papel === "signatario") return <>{children}</>;
 
   const semCarteira = !id.conectada;
+
+  if (!DEMO_MODE && id.temCofre && !chainInfo && chainErro && id.conectada) {
+    return (
+      <main className="flex flex-1 flex-col">
+        <header className="mb-4">
+          <Rotulo>{titulo}</Rotulo>
+          <h1 className="mt-1 font-display text-2xl font-semibold tracking-[-0.01em]">Não consegui ler o cofre na devnet</h1>
+          <p className="mt-1 text-sm text-white/60">{chainErro}</p>
+        </header>
+        <div className="mt-auto flex flex-col gap-2">
+          <Botao onClick={() => window.location.reload()}>Tentar de novo</Botao>
+          <BotaoLink href={`/extrato/${liga.id}`} variante="secondary">
+            Ver extrato público
+          </BotaoLink>
+        </div>
+      </main>
+    );
+  }
 
   if (!DEMO_MODE && !id.temCofre) {
     return (

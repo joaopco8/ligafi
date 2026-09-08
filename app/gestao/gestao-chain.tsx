@@ -37,7 +37,7 @@ export function GestaoChain() {
   const atualizarCofre = useCofre((s) => s.atualizarCofre);
   const anotarProposta = useCofre((s) => s.anotarProposta);
   const renomearSignatario = useCofre((s) => s.renomearSignatario);
-  const { ocupado, erro, aviso, rodar } = useAcao();
+  const { ocupado, erro, aviso, rodar, limpar } = useAcao({ conectada: wallet.connected });
 
   const [modo, setModo] = useState<"lista" | "form">("lista");
   const [nomeNova, setNomeNova] = useState("");
@@ -215,7 +215,7 @@ export function GestaoChain() {
         </div>
       </div>
 
-      <Mensagens erro={erro} aviso={aviso} />
+      <Mensagens erro={erro} aviso={aviso} onFechar={limpar} />
 
       {mostrarComparativo && cofre?.ultimaTransicao?.snapshot && (
         <Comparativo transicao={cofre.ultimaTransicao} onFechar={() => setMostrarComparativo(false)} />

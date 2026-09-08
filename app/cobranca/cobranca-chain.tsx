@@ -28,7 +28,7 @@ export function CobrancaChain() {
   const atualizarCobranca = useCofre((s) => s.atualizarCobranca);
   const { connection } = useConnection();
   const wallet = useWallet();
-  const { ocupado, erro, aviso, rodar } = useAcao();
+  const { ocupado, erro, aviso, rodar, limpar } = useAcao({ conectada: wallet.connected });
 
   const vault = cofre?.vaultPda ?? null;
 
@@ -142,7 +142,7 @@ export function CobrancaChain() {
         acao={<BadgeRede className="mt-1" />}
       />
 
-      <Mensagens erro={erro} aviso={aviso} />
+      <Mensagens erro={erro} aviso={aviso} onFechar={limpar} />
 
       <form className="flex flex-col gap-4" onSubmit={(e) => (e.preventDefault(), gerar())}>
         <Card className="flex flex-col gap-4">

@@ -31,8 +31,10 @@ export function PagamentoChain({ id }: { id: string }) {
   const { info, propostas, connection, recarregar, carregando } = useChain();
   const cofre = useCofre((s) => s.cofre);
   const anotarProposta = useCofre((s) => s.anotarProposta);
-  const { ocupado, erro, aviso, rodar } = useAcao();
+  const { ocupado, erro, aviso, rodar, limpar } = useAcao({ conectada: wallet.connected });
   const [confirmacao, setConfirmacao] = useState<null | "assinado" | "executado">(null);
+  /** Aprovação otimista: mostra o check antes de a devnet devolver a leitura. */
+  const [otimista, setOtimista] = useState<string | null>(null);
   const [avulsa, setAvulsa] = useState<PropostaInfo | null>(null);
 
   let indice: bigint | null = null;
@@ -51,7 +53,20 @@ export function PagamentoChain({ id }: { id: string }) {
   }, [naLista, info, indice, connection]);
 
   const bruta = naLista ?? avulsa;
-  const p = useMemo(() => (bruta && info ? mapearProposta(bruta, info.threshold, cofre) : null), [bruta, info, cofre]);
+  const p = useMemo(() => {
+    if (!bruta || !info) return null;
+    const m = mapearProposta(bruta, info.threshold, cofre);
+    if (otimista && !m.aprovacoes.includes(otimista) && m.status === "pendente") {
+      const aprovacoes = [...m.aprovacoes, otimista];
+      return { ...m, aprovacoes, status: aprovacoes.length >= m.necessarias ? ("aprovada" as const) : m.status };
+    }
+    return m;
+  }, [bruta, info, cofre, otimista]);
+
+  useEffect(() => {
+    // Leitura real chegou com a aprovação: descarta o otimismo.
+    if (otimista && bruta?.aprovacoes.some((k) => k.toBase58() === otimista)) setOtimista(null);
+  }, [bruta, otimista]);
   const meta = cofre?.propostas[id];
   const eu = wallet.publicKey?.toBase58() ?? null;
   const souMembro = !!eu && !!info && info.membros.some((m) => m.key.toBase58() === eu);
@@ -91,8 +106,9 @@ export function PagamentoChain({ id }: { id: string }) {
       aprovarProposta({ connection, assinador: assinadorWallet(wallet), multisigPda: info.multisigPda, transactionIndex: p!.indice }),
     );
     if (!sig) return;
-    await recarregar();
+    if (eu) setOtimista(eu);
     setConfirmacao("assinado");
+    recarregar().catch(() => {});
   }
 
   async function rejeitar() {
@@ -125,9 +141,9 @@ export function PagamentoChain({ id }: { id: string }) {
         acao={<BadgeRede className="mt-1" />}
       />
 
-      <Mensagens erro={erro} aviso={aviso} />
+      <Mensagens erro={erro} aviso={aviso} onFechar={limpar} />
 
-      <Card className="mb-4 animate-fadeUp">
+      <Card className="mb-4 animate-fadeUp" aria-busy={!!ocupado}>
         <div className="flex items-end justify-between gap-3">
           <div>
             <Rotulo>{gestao ? "Mudança" : "Valor"}</Rotulo>

@@ -142,20 +142,57 @@ function memoIx(texto: string): TransactionInstruction {
   return new TransactionInstruction({ programId: MEMO_PROGRAM_ID, keys: [], data: Buffer.from(texto, "utf8") });
 }
 
+/** Mínimo para taxa + rent das contas de proposta (~0.003 SOL). */
+export const SALDO_MINIMO_TAXA_LAMPORTS = 5_000_000;
+
+/** Falha cedo, antes de abrir a carteira, se não há SOL nem para a taxa. */
+export async function assertSaldoParaTaxa(connection: Connection, quem: PublicKey): Promise<void> {
+  const saldo = await connection.getBalance(quem, "confirmed");
+  if (saldo < SALDO_MINIMO_TAXA_LAMPORTS) {
+    throw new ErroLigaFi(
+      `Sua carteira tem ◎ ${(saldo / LAMPORTS_PER_SOL).toFixed(4)} e precisa de pelo menos ◎ 0,005 para a taxa. Use o airdrop de devnet.`,
+      "saldo_insuficiente",
+    );
+  }
+}
+
+/**
+ * Confirma tolerando blockhash expirado: se a rede disse "expirou" mas a
+ * assinatura já está confirmada, é sucesso. Só então lança.
+ */
+async function confirmar(connection: Connection, sig: string, blockhash: string, lastValidBlockHeight: number): Promise<void> {
+  try {
+    const r = await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, "confirmed");
+    if (r.value.err) throw new Error(`Transação falhou na rede: ${JSON.stringify(r.value.err)}`);
+  } catch (e) {
+    const t = traduzirErro(e);
+    if (t.codigo !== "blockhash_expirado") throw e;
+    const st = await connection.getSignatureStatuses([sig], { searchTransactionHistory: true });
+    const s = st.value[0];
+    if (s && !s.err && (s.confirmationStatus === "confirmed" || s.confirmationStatus === "finalized")) return;
+    throw e;
+  }
+}
+
 async function enviarEConfirmar(
   connection: Connection,
   assinador: Assinador,
   instrucoes: TransactionInstruction[],
   extras: Keypair[] = [],
+  tentativa = 1,
 ): Promise<string> {
   try {
+    if (tentativa === 1) await assertSaldoParaTaxa(connection, assinador.publicKey);
     const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
     const tx = new Transaction({ feePayer: assinador.publicKey, blockhash, lastValidBlockHeight }).add(...instrucoes);
     const sig = await assinador.enviar(tx, connection, extras);
-    await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, "confirmed");
+    await confirmar(connection, sig, blockhash, lastValidBlockHeight);
     return sig;
   } catch (e) {
-    throw traduzirErro(e);
+    const t = traduzirErro(e);
+    // Blockhash venceu antes de a carteira devolver a assinatura: uma nova tentativa com blockhash fresco.
+    if (t.codigo === "blockhash_expirado" && tentativa < 2) return enviarEConfirmar(connection, assinador, instrucoes, extras, tentativa + 1);
+    throw t;
   }
 }
 
@@ -488,6 +525,7 @@ export async function executarTransferencia(p: {
       transactionIndex: p.transactionIndex,
       member: p.assinador.publicKey,
     });
+    await assertSaldoParaTaxa(p.connection, p.assinador.publicKey);
     const { blockhash, lastValidBlockHeight } = await p.connection.getLatestBlockhash("confirmed");
     const msg = new TransactionMessage({
       payerKey: p.assinador.publicKey,
@@ -496,7 +534,7 @@ export async function executarTransferencia(p: {
     }).compileToV0Message(lookupTableAccounts);
     const tx = new VersionedTransaction(msg);
     const sig = await p.assinador.enviar(tx, p.connection);
-    await p.connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, "confirmed");
+    await confirmar(p.connection, sig, blockhash, lastValidBlockHeight);
     return sig;
   } catch (e) {
     throw traduzirErro(e);
